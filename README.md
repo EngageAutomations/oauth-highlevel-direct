@@ -1,161 +1,118 @@
 # GoHighLevel Direct OAuth Integration
 
-🚀 A production-ready Node.js server for GoHighLevel OAuth integration without Nango dependency.
+A secure, self-hosted OAuth server for GoHighLevel API integration with PostgreSQL token storage.
 
 ## Features
 
-- ✅ Direct GoHighLevel OAuth 2.0 implementation
-- 🔐 Secure token encryption and storage
-- 🔄 Automatic token refresh
-- 🗄️ Dual database support (PostgreSQL for production, SQLite for development)
-- 🌐 CORS-enabled API proxy
-- 🛡️ Production-ready security
-- 🚂 Railway deployment ready
+- **Direct OAuth Flow**: No third-party dependencies like Nango
+- **Secure Token Storage**: Encrypted tokens in PostgreSQL database
+- **Automatic Token Refresh**: Handles token expiration seamlessly
+- **API Proxy**: Secure proxy endpoint for HighLevel API calls
+- **Railway Ready**: Optimized for Railway deployment
 
 ## Quick Start
 
-### Local Development
+### 1. Environment Setup
 
-1. **Clone and install:**
-   ```bash
-   git clone https://github.com/EngageAutomations/oauth-highlevel-direct.git
-   cd oauth-highlevel-direct
-   npm install
-   ```
+Copy `.env.production` and configure your variables:
 
-2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your GoHighLevel credentials
-   ```
+```bash
+# GoHighLevel OAuth Configuration
+HL_CLIENT_ID=your_client_id
+HL_CLIENT_SECRET=your_client_secret
+REDIRECT_URI=https://your-domain.com/oauth/callback
 
-3. **Start development server:**
-   ```bash
-   npm run dev
-   ```
+# Database (Railway will provide this)
+DATABASE_URL=postgresql://...
 
-### Production Deployment (Railway)
+# Security
+ENCRYPTION_KEY=your_secure_encryption_key
+```
 
-1. **Deploy to Railway:**
-   - Connect this GitHub repository to Railway
-   - Railway will auto-detect Node.js and deploy
+### 2. Database Setup
 
-2. **Set environment variables in Railway:**
-   ```
-   NODE_ENV=production
-   HL_CLIENT_ID=your_highlevel_client_id
-   HL_CLIENT_SECRET=your_highlevel_client_secret
-   REDIRECT_URI=https://your-app.up.railway.app/oauth/callback
-   DATABASE_URL=postgresql://... (Railway PostgreSQL)
-   ENCRYPTION_KEY=your_secure_random_key
-   ```
+Run the SQL schema on your PostgreSQL database:
 
-3. **Add PostgreSQL addon in Railway dashboard**
+```sql
+-- See create_tables.sql for complete schema
+CREATE TABLE installations (
+    id SERIAL PRIMARY KEY,
+    location_id VARCHAR(255) UNIQUE NOT NULL,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 3. Deploy to Railway
+
+1. Connect this repository to Railway
+2. Add PostgreSQL service
+3. Configure environment variables
+4. Deploy!
 
 ## API Endpoints
 
 ### OAuth Flow
-- `GET /oauth/callback` - OAuth callback handler
-- `DELETE /oauth/disconnect/:locationId` - Disconnect integration
+
+- `GET /oauth/authorize?locationId=xxx` - Start OAuth flow
+- `GET /oauth/callback` - OAuth callback (configured in HL)
+- `DELETE /oauth/disconnect?locationId=xxx` - Remove connection
 
 ### API Proxy
-- `ALL /proxy/hl/*` - Proxy to GoHighLevel API with automatic authentication
-  - Requires `x-location-id` header
-  - Handles token refresh automatically
 
-### Utilities
-- `GET /health` - Health check endpoint
-- `GET /` - Server info and available endpoints
+- `GET|POST|PUT|DELETE /proxy/hl/*?locationId=xxx` - Proxy to HighLevel API
 
-## Usage Example
+Example:
+```bash
+# Get contacts for a location
+GET /proxy/hl/contacts?locationId=abc123
 
-```javascript
-// Make authenticated API calls through the proxy
-const response = await fetch('https://your-app.up.railway.app/proxy/hl/locations', {
-  headers: {
-    'x-location-id': 'your_location_id',
-    'Content-Type': 'application/json'
-  }
-});
-
-const data = await response.json();
+# Create contact
+POST /proxy/hl/contacts?locationId=abc123
 ```
 
-## Architecture
+## HighLevel Developer Portal Setup
 
-- **Database**: Automatic PostgreSQL (production) / SQLite (development)
-- **Security**: AES-256-CBC token encryption
-- **OAuth**: Direct implementation with `simple-oauth2`
-- **API**: Express.js with CORS support
-- **Deployment**: Railway-optimized with health checks
+1. Create OAuth App in HighLevel Developer Portal
+2. Set redirect URI to: `https://your-domain.com/oauth/callback`
+3. Configure required scopes
+4. Copy Client ID and Secret to environment variables
+
+## Security Features
+
+- **Token Encryption**: All tokens encrypted at rest using AES-256-GCM
+- **Automatic Refresh**: Tokens refreshed automatically before expiration
+- **Secure Headers**: Proper security headers and HTTPS enforcement
+- **Input Validation**: All inputs validated and sanitized
+
+## Development
+
+```bash
+npm install
+npm run dev  # Uses nodemon for auto-reload
+```
+
+## Production Deployment
+
+```bash
+npm start
+```
 
 ## Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `NODE_ENV` | Environment (production/development) | Yes |
 | `HL_CLIENT_ID` | GoHighLevel OAuth Client ID | Yes |
 | `HL_CLIENT_SECRET` | GoHighLevel OAuth Client Secret | Yes |
 | `REDIRECT_URI` | OAuth callback URL | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Production |
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
 | `ENCRYPTION_KEY` | Token encryption key | Yes |
-| `PORT` | Server port (default: 3000) | No |
-
-## Security Features
-
-- 🔐 All tokens encrypted before database storage
-- 🛡️ Secure token refresh mechanism
-- 🌐 CORS protection
-- 🔍 Input validation and error handling
-- 📊 Health monitoring
-
-## Railway Deployment
-
-This repository is optimized for Railway deployment:
-
-1. **Connect Repository**: Link this GitHub repo to Railway
-2. **Auto-Detection**: Railway automatically detects Node.js
-3. **Add PostgreSQL**: Add PostgreSQL service in Railway dashboard
-4. **Environment Variables**: Set all required variables in Railway settings
-5. **Deploy**: Railway handles the rest automatically
-
-### Railway Environment Setup
-
-```bash
-# Required for Railway deployment
-NODE_ENV=production
-HL_CLIENT_ID=your_ghl_client_id
-HL_CLIENT_SECRET=your_ghl_client_secret
-REDIRECT_URI=https://your-railway-app.up.railway.app/oauth/callback
-DATABASE_URL=${{Postgres.DATABASE_URL}}  # Railway PostgreSQL
-ENCRYPTION_KEY=your_32_character_random_key
-```
-
-## GoHighLevel OAuth Setup
-
-1. **Create OAuth App** in GoHighLevel:
-   - Go to Settings → Integrations → OAuth Apps
-   - Create new OAuth application
-   - Set redirect URI to your Railway URL + `/oauth/callback`
-
-2. **Configure Scopes**:
-   - `contacts.readonly`
-   - `calendars.read`
-   - `locations.readonly`
-   - `users.readonly`
-   - Add other scopes as needed
-
-3. **Get Credentials**:
-   - Copy Client ID and Client Secret
-   - Add to Railway environment variables
+| `HL_SCOPES` | OAuth scopes (comma-separated) | No |
+| `PORT` | Server port | No (default: 3000) |
 
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- Create an issue in this repository
-- Check the Railway deployment logs
-- Verify environment variables are set correctly
